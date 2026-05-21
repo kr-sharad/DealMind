@@ -1,59 +1,11 @@
-st.markdown("""
-<style>
-    /* Sidebar styling */
-    .css-1d391kg { background-color: #0f0f1a !important; }
-    
-    /* Main header */
-    .main-header {
-        background: linear-gradient(135deg, #6c63ff 0%, #a855f7 100%);
-        padding: 20px;
-        border-radius: 12px;
-        color: white;
-        margin-bottom: 20px;
-    }
-    
-    /* Prospect card */
-    .prospect-card {
-        background: #f8f7ff;
-        border: 2px solid #6c63ff20;
-        border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 16px;
-    }
-    
-    /* Memory badge */
-    .memory-badge {
-        background: #6c63ff20;
-        color: #6c63ff;
-        border-radius: 20px;
-        padding: 4px 12px;
-        font-size: 12px;
-        font-weight: 600;
-    }
-    
-    /* Cost savings highlight */
-    .savings-highlight {
-        background: #10b98120;
-        color: #10b981;
-        border-radius: 8px;
-        padding: 12px;
-        font-weight: 700;
-        font-size: 18px;
-    }
-    
-    /* Hide Streamlit branding */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-</style>
-""", unsafe_allow_html=True)
 import streamlit as st
 import os
 import pandas as pd
 from dotenv import load_dotenv
 from groq import Groq
- 
+
 load_dotenv()
- 
+
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="DealMind",
@@ -61,40 +13,40 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
- 
+
 # ── Custom CSS ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
- 
+
   html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; color: #1a1a2e; }
- 
+
   [data-testid="stSidebar"] { background: #1a1a2e !important; border-right: 1px solid #2d2d4e; }
   [data-testid="stSidebar"] * { color: #e0e0f5 !important; }
   [data-testid="stSidebar"] .stMarkdown h1,
   [data-testid="stSidebar"] .stMarkdown h2,
   [data-testid="stSidebar"] .stMarkdown h3 { color: #ffffff !important; font-family: 'Syne', sans-serif; }
- 
+
   .main .block-container { background: #ffffff; padding: 2rem 3rem; max-width: 960px; }
- 
+
   .brand-header { display: flex; align-items: center; gap: 10px; padding: 1.2rem 1rem 0.5rem; margin-bottom: 0.5rem; }
   .brand-logo { width: 32px; height: 32px; background: linear-gradient(135deg, #6c63ff, #a78bfa); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
   .brand-name { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.4rem; color: #ffffff !important; letter-spacing: -0.5px; }
   .brand-tag { font-size: 0.65rem; color: #6c63ff !important; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; margin-left: 2px; }
- 
+
   .prospect-card { background: rgba(108,99,255,0.08); border: 1px solid rgba(108,99,255,0.18); border-radius: 12px; padding: 14px 16px; margin: 8px 0; cursor: pointer; transition: all 0.2s ease; }
   .prospect-card:hover { background: rgba(108,99,255,0.18); border-color: rgba(108,99,255,0.45); transform: translateX(3px); }
   .prospect-card.selected { background: rgba(108,99,255,0.22); border-color: #6c63ff; box-shadow: 0 0 0 1px rgba(108,99,255,0.3); }
   .prospect-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.95rem; color: #ffffff !important; margin-bottom: 3px; }
   .prospect-meta { font-size: 0.78rem; color: #a0a0c0 !important; margin-bottom: 6px; }
- 
+
   .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
   .badge-negotiation { background: rgba(108,99,255,0.25); color: #a78bfa !important; border: 1px solid rgba(108,99,255,0.4); }
   .badge-proposal { background: rgba(59,195,170,0.18); color: #3bc3aa !important; border: 1px solid rgba(59,195,170,0.35); }
   .badge-discovery { background: rgba(251,191,36,0.18); color: #fbbf24 !important; border: 1px solid rgba(251,191,36,0.35); }
- 
+
   .section-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #5a5a8a !important; padding: 0.8rem 1rem 0.3rem; margin-top: 0.5rem; }
- 
+
   .profile-card { background: linear-gradient(135deg, #f8f7ff 0%, #f0eeff 100%); border: 1px solid #e0d9ff; border-radius: 16px; padding: 28px 32px; margin-bottom: 28px; position: relative; overflow: hidden; }
   .profile-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: linear-gradient(180deg, #6c63ff, #a78bfa); border-radius: 4px 0 0 4px; }
   .profile-card-header { display: flex; align-items: flex-start; gap: 18px; }
@@ -106,7 +58,7 @@ st.markdown("""
   .stat-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #9090b0; }
   .stat-value { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.05rem; color: #1a1a2e; }
   .stat-value.deal-size { color: #6c63ff; }
- 
+
   .chat-section-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.05rem; color: #1a1a2e; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
   .chat-bubble-user { background: #6c63ff; color: white; border-radius: 16px 16px 4px 16px; padding: 12px 18px; margin: 8px 0 8px auto; max-width: 75%; font-size: 0.88rem; line-height: 1.5; box-shadow: 0 2px 8px rgba(108,99,255,0.3); }
   .chat-bubble-ai { background: #f5f4ff; color: #1a1a2e; border: 1px solid #e5e2ff; border-radius: 16px 16px 16px 4px; padding: 14px 18px; margin: 8px auto 8px 0; max-width: 80%; font-size: 0.88rem; line-height: 1.6; }
@@ -115,23 +67,23 @@ st.markdown("""
   .chat-message-wrap { display: flex; flex-direction: column; margin-bottom: 4px; }
   .chat-message-wrap.user { align-items: flex-end; }
   .chat-message-wrap.ai { align-items: flex-start; }
- 
+
   .stTextInput > div > div > input { border: 1.5px solid #e0d9ff !important; border-radius: 12px !important; font-family: 'DM Sans', sans-serif !important; font-size: 0.9rem !important; padding: 12px 16px !important; background: #fafafe !important; color: #1a1a2e !important; transition: border-color 0.2s; }
   .stTextInput > div > div > input:focus { border-color: #6c63ff !important; box-shadow: 0 0 0 3px rgba(108,99,255,0.12) !important; }
- 
+
   .stButton > button { background: linear-gradient(135deg, #6c63ff, #8b84ff) !important; color: white !important; border: none !important; border-radius: 12px !important; font-family: 'Syne', sans-serif !important; font-weight: 700 !important; font-size: 0.88rem !important; padding: 12px 24px !important; transition: all 0.2s ease !important; box-shadow: 0 3px 12px rgba(108,99,255,0.35) !important; letter-spacing: 0.3px !important; }
   .stButton > button:hover { transform: translateY(-1px) !important; box-shadow: 0 5px 18px rgba(108,99,255,0.45) !important; background: linear-gradient(135deg, #7d75ff, #9d97ff) !important; }
   .stButton > button:active { transform: translateY(0) !important; }
- 
+
   .custom-divider { height: 1px; background: linear-gradient(90deg, transparent, #e0d9ff, transparent); margin: 24px 0; }
- 
+
   .empty-state { text-align: center; padding: 80px 40px; color: #9090b0; }
   .empty-state-icon { font-size: 3.5rem; margin-bottom: 16px; opacity: 0.5; }
   .empty-state h2 { font-family: 'Syne', sans-serif; font-size: 1.3rem; color: #3a3a6e; margin-bottom: 8px; }
   .empty-state p { font-size: 0.88rem; max-width: 320px; margin: 0 auto; line-height: 1.6; }
- 
+
   .stSpinner > div { border-top-color: #6c63ff !important; }
- 
+
   /* ── Routing signal pill ── */
   .route-signal {
     display: inline-flex;
@@ -150,7 +102,7 @@ st.markdown("""
   .route-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
   .route-signal.keyword .route-dot { background: #6c63ff; }
   .route-signal.length  .route-dot  { background: #3bc3aa; }
- 
+
   /* ── Cost Dashboard ── */
   .dash-section-title {
     font-family: 'Syne', sans-serif;
@@ -211,7 +163,7 @@ st.markdown("""
     letter-spacing: 0.8px;
   }
   .dash-note span { color: #6c63ff; font-weight: 700; }
- 
+
   /* Streamlit metric tweaks */
   [data-testid="stMetric"] {
     background: linear-gradient(135deg, #f8f7ff, #f2f0ff);
@@ -222,17 +174,17 @@ st.markdown("""
   [data-testid="stMetricLabel"] { font-size: 0.72rem !important; font-weight: 700 !important; letter-spacing: 1px !important; text-transform: uppercase !important; color: #8080a8 !important; }
   [data-testid="stMetricValue"] { font-family: 'Syne', sans-serif !important; font-weight: 800 !important; font-size: 1.7rem !important; color: #1a1a2e !important; }
   [data-testid="stMetricDelta"] svg { display: none; }
- 
+
   /* Tabs */
   .stTabs [data-baseweb="tab-list"] { gap: 4px; background: #f5f3ff; padding: 6px; border-radius: 12px; border: 1px solid #e5e0ff; }
   .stTabs [data-baseweb="tab"] { border-radius: 9px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.85rem; color: #7070a0; padding: 8px 22px; }
   .stTabs [aria-selected="true"] { background: #6c63ff !important; color: white !important; }
- 
+
   #MainMenu, footer, header { visibility: hidden; }
   .stDeployButton { display: none; }
 </style>
 """, unsafe_allow_html=True)
- 
+
 # ── CascadeFlow: keyword signals that always escalate to heavy model ────────────
 COMPLEX_KEYWORDS = {
     "strategy", "negotiate", "negotiation", "negotiating",
@@ -241,7 +193,7 @@ COMPLEX_KEYWORDS = {
     "discount", "escalate", "stakeholder", "executive", "renewal",
     "churn", "risk", "upsell", "expansion", "forecast",
 }
- 
+
 # ── CascadeFlow routing tiers ──────────────────────────────────────────────────
 ROUTING_TIERS = [
     {
@@ -270,7 +222,7 @@ ROUTING_TIERS = [
     },
 ]
 BASELINE_COST = 0.008  # cost if every query used the heavy model
- 
+
 def route_query(text: str) -> dict:
     """
     CascadeFlow routing logic:
@@ -281,7 +233,7 @@ def route_query(text: str) -> dict:
     words_lower   = text.lower().split()
     word_count    = len(words_lower)
     matched_kws   = [w for w in words_lower if w.strip(".,!?;:'\"") in COMPLEX_KEYWORDS]
- 
+
     if matched_kws:
         # Keyword-triggered escalation → always Heavy
         tier = ROUTING_TIERS[-1]
@@ -292,7 +244,7 @@ def route_query(text: str) -> dict:
             "matched_kws":  matched_kws[:3],   # cap display at 3
             "reason":       f"Keyword escalation: {', '.join(matched_kws[:3])}",
         }
- 
+
     # Word-count cascade
     for tier in ROUTING_TIERS:
         if word_count <= tier["max_words"]:
@@ -303,7 +255,7 @@ def route_query(text: str) -> dict:
                 "matched_kws": [],
                 "reason":      f"{tier['tier_name']} tier — {word_count} words",
             }
- 
+
     # Fallback (shouldn't hit, last tier has inf)
     tier = ROUTING_TIERS[-1]
     return {
@@ -313,14 +265,14 @@ def route_query(text: str) -> dict:
         "matched_kws": [],
         "reason":      f"Long query — {word_count} words",
     }
- 
+
 # ── Prospect data ──────────────────────────────────────────────────────────────
 PROSPECTS = [
     {"id": "sarah_chen",  "name": "Sarah Chen",  "initials": "SC", "company": "Nexus Dynamics Corp",    "title": "VP of Engineering",    "deal_size": "$200,000", "deal_type": "Enterprise",  "stage": "Negotiation", "badge_class": "badge-negotiation", "last_contact": "May 18, 2026", "next_step": "Legal review call",          "notes": "Interested in multi-year contract. Budget approved. Legal team flagged 3 clauses."},
     {"id": "mark_wilson", "name": "Mark Wilson", "initials": "MW", "company": "Bright Leaf Solutions",  "title": "Head of Operations",   "deal_size": "$45,000",  "deal_type": "SMB",         "stage": "Proposal",    "badge_class": "badge-proposal",    "last_contact": "May 15, 2026", "next_step": "Follow-up on pricing deck",  "notes": "Comparing with two competitors. Price-sensitive. Likes automation features."},
     {"id": "priya_patel", "name": "Priya Patel", "initials": "PP", "company": "OrionEdge Technologies", "title": "Chief Product Officer", "deal_size": "$85,000",  "deal_type": "Mid-market",  "stage": "Discovery",   "badge_class": "badge-discovery",   "last_contact": "May 20, 2026", "next_step": "Technical demo scheduled",   "notes": "Early stage. Strong product-market fit. Expanding team in Q3."},
 ]
- 
+
 # ── Session state ──────────────────────────────────────────────────────────────
 if "selected_prospect_id" not in st.session_state:
     st.session_state.selected_prospect_id = None
@@ -328,10 +280,10 @@ if "chat_histories" not in st.session_state:
     st.session_state.chat_histories = {}
 if "query_log" not in st.session_state:
     st.session_state.query_log = []
- 
+
 def get_prospect(pid):
     return next((p for p in PROSPECTS if p["id"] == pid), None)
- 
+
 # ── Groq API call ──────────────────────────────────────────────────────────────
 def call_groq(messages: list, model: str) -> str:
     api_key = os.getenv("GROQ_API_KEY")
@@ -348,11 +300,11 @@ def call_groq(messages: list, model: str) -> str:
         return response.choices[0].message.content
     except Exception as e:
         return f"⚠️ Error calling Groq API: {str(e)}"
- 
+
 def build_system_prompt(prospect: dict) -> str:
     return f"""You are DealMind, an elite AI sales intelligence assistant embedded in a CRM.
 You are currently helping a sales rep manage a deal with the following prospect:
- 
+
 PROSPECT PROFILE
 ────────────────
 Name: {prospect['name']}
@@ -364,7 +316,7 @@ Current Stage: {prospect['stage']}
 Last Contact: {prospect['last_contact']}
 Next Step: {prospect['next_step']}
 Notes: {prospect['notes']}
- 
+
 YOUR ROLE
 ─────────
 - Provide sharp, actionable sales intelligence and coaching
@@ -374,9 +326,9 @@ YOUR ROLE
 - Reference the prospect's specific context in every response
 - Use bullet points sparingly; prefer tight, direct prose
 - Format key recommendations with a ▸ prefix for clarity
- 
+
 Always respond as a senior sales strategist who knows this deal inside-out."""
- 
+
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
@@ -388,9 +340,9 @@ with st.sidebar:
       </div>
     </div>
     """, unsafe_allow_html=True)
- 
+
     st.markdown('<div class="section-label">Active Prospects</div>', unsafe_allow_html=True)
- 
+
     for p in PROSPECTS:
         selected   = st.session_state.selected_prospect_id == p["id"]
         card_class = "prospect-card selected" if selected else "prospect-card"
@@ -406,7 +358,7 @@ with st.sidebar:
             if p["id"] not in st.session_state.chat_histories:
                 st.session_state.chat_histories[p["id"]] = []
             st.rerun()
- 
+
     st.markdown("---")
     st.markdown("""
     <div style="padding: 0 0.5rem; font-size: 0.72rem; color: #5a5a8a; line-height: 1.7;">
@@ -416,10 +368,10 @@ with st.sidebar:
       <strong style="color: #8080b0 !important;">Context:</strong> Deal-aware
     </div>
     """, unsafe_allow_html=True)
- 
+
 # ── Main area ──────────────────────────────────────────────────────────────────
 prospect_id = st.session_state.selected_prospect_id
- 
+
 if prospect_id is None:
     st.markdown("""
     <div class="empty-state">
@@ -428,15 +380,15 @@ if prospect_id is None:
       <p>Choose a deal from the sidebar to open their profile and start a conversation with your AI sales coach.</p>
     </div>
     """, unsafe_allow_html=True)
- 
+
 else:
     prospect = get_prospect(prospect_id)
     if prospect_id not in st.session_state.chat_histories:
         st.session_state.chat_histories[prospect_id] = []
     chat_history = st.session_state.chat_histories[prospect_id]
- 
+
     tab_coach, tab_dash = st.tabs(["💬 Deal Coach", "📊 Cost Dashboard"])
- 
+
     # ════════════════════════════════════════════════════════════════════════
     # TAB 1 — Deal Coach
     # ════════════════════════════════════════════════════════════════════════
@@ -472,9 +424,9 @@ else:
           </div>
         </div>
         """, unsafe_allow_html=True)
- 
+
         st.markdown(f'<div class="chat-section-title">💬 AI Deal Coach — {prospect["name"]}</div>', unsafe_allow_html=True)
- 
+
         if not chat_history:
             st.markdown(f"""
             <div class="chat-message-wrap ai">
@@ -486,7 +438,7 @@ else:
               </div>
             </div>
             """, unsafe_allow_html=True)
- 
+
         for msg in chat_history:
             if msg["role"] == "user":
                 st.markdown(f"""
@@ -503,7 +455,7 @@ else:
                     signal_html = f'<div class="route-signal keyword"><div class="route-dot"></div>Keyword escalation · {kw_str} · {msg.get("route_model","")}</div>'
                 elif msg.get("route_trigger") == "length":
                     signal_html = f'<div class="route-signal length"><div class="route-dot"></div>Length routing · {msg.get("route_words","?")} words · {msg.get("route_model","")}</div>'
- 
+
                 st.markdown(f"""
                 <div class="chat-message-wrap ai">
                   {signal_html}
@@ -511,9 +463,9 @@ else:
                   <div class="chat-bubble-ai">{msg['content']}</div>
                 </div>
                 """, unsafe_allow_html=True)
- 
+
         st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
- 
+
         col1, col2 = st.columns([5, 1])
         with col1:
             user_input = st.text_input(
@@ -524,7 +476,7 @@ else:
             )
         with col2:
             send_clicked = st.button("Send ▸", use_container_width=True)
- 
+
         def handle_send(text: str):
             tier = route_query(text)
             chat_history.append({"role": "user", "content": text})
@@ -534,7 +486,7 @@ else:
             ]
             with st.spinner("DealMind is thinking…"):
                 ai_response = call_groq(api_messages, tier["model"])
- 
+
             # Store routing metadata on the assistant message for display
             chat_history.append({
                 "role":          "assistant",
@@ -545,7 +497,7 @@ else:
                 "route_model":   tier["label"],
             })
             st.session_state.chat_histories[prospect_id] = chat_history
- 
+
             # Log routing decision
             st.session_state.query_log.append({
                 "num":        len(st.session_state.query_log) + 1,
@@ -558,10 +510,10 @@ else:
                 "cost":       tier["cost"],
             })
             st.rerun()
- 
+
         if send_clicked and user_input.strip():
             handle_send(user_input.strip())
- 
+
         st.markdown("**Quick prompts:**")
         qcol1, qcol2, qcol3 = st.columns(3)
         quick_prompts = {
@@ -573,7 +525,7 @@ else:
             with [qcol1, qcol2, qcol3][i]:
                 if st.button(label, key=f"quick_{prospect_id}_{i}", use_container_width=True):
                     handle_send(prompt)
- 
+
     # ════════════════════════════════════════════════════════════════════════
     # TAB 2 — Cost Dashboard
     # ════════════════════════════════════════════════════════════════════════
@@ -585,10 +537,10 @@ else:
         est_no_route  = total_queries * BASELINE_COST
         money_saved   = est_no_route - total_cost
         pct_saved     = (money_saved / est_no_route * 100) if est_no_route > 0 else 0.0
- 
+
         kw_escalations = sum(1 for r in log if r.get("trigger") == "keyword")
         len_routed     = total_queries - kw_escalations
- 
+
         # ── 4 metric boxes ───────────────────────────────────────────────
         m1, m2, m3, m4 = st.columns(4)
         with m1:
@@ -603,7 +555,7 @@ else:
                 f"${money_saved:.4f}",
                 delta=f"{pct_saved:.1f}% saved" if total_queries else "—",
             )
- 
+
         # ── Routing signal breakdown ──────────────────────────────────────
         if total_queries:
             st.markdown('<div class="dash-section-title">🔀 Signal Breakdown</div>', unsafe_allow_html=True)
@@ -614,10 +566,10 @@ else:
             with sb2:
                 st.metric("Length-Routed ↔", len_routed,
                           delta=f"{len_routed/total_queries*100:.0f}% of queries" if total_queries else "—")
- 
+
         # ── Routing Decisions table ───────────────────────────────────────
         st.markdown('<div class="dash-section-title">📋 Routing Decisions</div>', unsafe_allow_html=True)
- 
+
         if not log:
             st.markdown("""
             <div style="text-align:center; padding: 40px; color: #b0a8d8; font-size: 0.9rem;">
@@ -631,7 +583,7 @@ else:
                     trigger_cell = f'<span class="trigger-kw">🔑 {", ".join(r["matched_kws"])}</span>'
                 else:
                     trigger_cell = f'<span class="trigger-len">↔ {r["words"]} words</span>'
- 
+
                 rows_html += f"""
                 <tr>
                   <td>#{r['num']}</td>
@@ -640,7 +592,7 @@ else:
                   <td>{r['reason']}</td>
                   <td class="cost-cell">${r['cost']:.4f}</td>
                 </tr>"""
- 
+
             st.markdown(f"""
             <table class="routing-table">
               <thead>
@@ -655,7 +607,7 @@ else:
               <tbody>{rows_html}</tbody>
             </table>
             """, unsafe_allow_html=True)
- 
+
             # ── Bar chart: queries per model ──────────────────────────────
             st.markdown('<div class="dash-section-title">📊 Queries by Model</div>', unsafe_allow_html=True)
             model_counts = {}
@@ -663,7 +615,7 @@ else:
                 model_counts[r["model"]] = model_counts.get(r["model"], 0) + 1
             chart_df = pd.DataFrame({"Queries": model_counts})
             st.bar_chart(chart_df, color="#6c63ff")
- 
+
             # ── Bar chart: cost by model ──────────────────────────────────
             st.markdown('<div class="dash-section-title">💰 Cost by Model</div>', unsafe_allow_html=True)
             model_costs = {}
@@ -671,10 +623,11 @@ else:
                 model_costs[r["model"]] = round(model_costs.get(r["model"], 0.0) + r["cost"], 6)
             cost_df = pd.DataFrame({"Cost ($)": model_costs})
             st.bar_chart(cost_df, color="#a78bfa")
- 
+
         # ── Footer note ───────────────────────────────────────────────────
         st.markdown("""
         <div class="dash-note">
           Powered by <span>CascadeFlow</span> — keyword escalation + length-based routing across 3 model tiers.
         </div>
         """, unsafe_allow_html=True)
+        
