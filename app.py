@@ -84,25 +84,6 @@ st.markdown("""
 
   .stSpinner > div { border-top-color: #6c63ff !important; }
 
-  /* ── Routing signal pill ── */
-  .route-signal {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-size: 0.67rem;
-    font-weight: 700;
-    letter-spacing: 0.6px;
-    text-transform: uppercase;
-    margin-bottom: 10px;
-  }
-  .route-signal.keyword { background: rgba(108,99,255,0.12); color: #5046d4; border: 1px solid rgba(108,99,255,0.3); }
-  .route-signal.length  { background: rgba(59,195,170,0.12);  color: #1a9e86; border: 1px solid rgba(59,195,170,0.3); }
-  .route-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-  .route-signal.keyword .route-dot { background: #6c63ff; }
-  .route-signal.length  .route-dot  { background: #3bc3aa; }
-
   /* ── Cost Dashboard ── */
   .dash-section-title {
     font-family: 'Syne', sans-serif;
@@ -153,8 +134,6 @@ st.markdown("""
   .chip-mid    { background: rgba(251,191,36,0.15);  color: #b8870a; border: 1px solid rgba(251,191,36,0.35); }
   .chip-heavy  { background: rgba(108,99,255,0.15);  color: #5046d4; border: 1px solid rgba(108,99,255,0.3); }
   .cost-cell   { font-family: 'Syne', sans-serif; font-weight: 700; color: #6c63ff; }
-  .trigger-kw  { font-size: 0.72rem; color: #6c63ff; font-weight: 600; font-style: italic; }
-  .trigger-len { font-size: 0.72rem; color: #1a9e86; font-weight: 600; }
   .dash-note {
     margin-top: 32px;
     text-align: center;
@@ -185,24 +164,15 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ── CascadeFlow: keyword signals that always escalate to heavy model ────────────
-COMPLEX_KEYWORDS = {
-    "strategy", "negotiate", "negotiation", "negotiating",
-    "proposal", "objection", "objections", "close", "closing",
-    "contract", "legal", "competitor", "competitive", "pricing",
-    "discount", "escalate", "stakeholder", "executive", "renewal",
-    "churn", "risk", "upsell", "expansion", "forecast",
-}
-
-# ── CascadeFlow routing tiers ──────────────────────────────────────────────────
+# ── Constants: model routing tiers ────────────────────────────────────────────
 ROUTING_TIERS = [
     {
         "model":      "gemma2-9b-it",
         "label":      "gemma2-9b",
         "chip_class": "chip-fast",
         "max_words":  40,
-        "cost":       0.001,
-        "tier_name":  "Fast",
+        "cost":       0.0001,
+        "reason":     "Short query — lightweight model",
     },
     {
         "model":      "llama-3.1-8b-instant",
@@ -210,61 +180,26 @@ ROUTING_TIERS = [
         "chip_class": "chip-mid",
         "max_words":  120,
         "cost":       0.0004,
-        "tier_name":  "Balanced",
+        "reason":     "Medium query — balanced model",
     },
     {
         "model":      "llama-3.3-70b-versatile",
         "label":      "llama-3.3-70b",
         "chip_class": "chip-heavy",
         "max_words":  float("inf"),
-        "cost":       0.008,
-        "tier_name":  "Heavy",
+        "cost":       0.002,
+        "reason":     "Complex query — full-power model",
     },
 ]
-BASELINE_COST = 0.008  # cost if every query used the heavy model
+BASELINE_COST = 0.008   # always-premium baseline for savings calc
 
 def route_query(text: str) -> dict:
-    """
-    CascadeFlow routing logic:
-    1. Keyword check  — any COMPLEX_KEYWORDS present → force Heavy tier regardless of length.
-    2. Word-count check — otherwise pick the cheapest tier that fits.
-    Returns the selected tier dict plus routing metadata.
-    """
-    words_lower   = text.lower().split()
-    word_count    = len(words_lower)
-    matched_kws   = [w for w in words_lower if w.strip(".,!?;:'\"") in COMPLEX_KEYWORDS]
-
-    if matched_kws:
-        # Keyword-triggered escalation → always Heavy
-        tier = ROUTING_TIERS[-1]
-        return {
-            **tier,
-            "words":        word_count,
-            "trigger":      "keyword",
-            "matched_kws":  matched_kws[:3],   # cap display at 3
-            "reason":       f"Keyword escalation: {', '.join(matched_kws[:3])}",
-        }
-
-    # Word-count cascade
+    """Pick the cheapest model tier that fits the query length."""
+    wc = len(text.split())
     for tier in ROUTING_TIERS:
-        if word_count <= tier["max_words"]:
-            return {
-                **tier,
-                "words":       word_count,
-                "trigger":     "length",
-                "matched_kws": [],
-                "reason":      f"{tier['tier_name']} tier — {word_count} words",
-            }
-
-    # Fallback (shouldn't hit, last tier has inf)
-    tier = ROUTING_TIERS[-1]
-    return {
-        **tier,
-        "words":       word_count,
-        "trigger":     "length",
-        "matched_kws": [],
-        "reason":      f"Long query — {word_count} words",
-    }
+        if wc <= tier["max_words"]:
+            return {**tier, "words": wc}
+    return {**ROUTING_TIERS[-1], "words": wc}
 
 # ── Prospect data ──────────────────────────────────────────────────────────────
 PROSPECTS = [
@@ -279,7 +214,7 @@ if "selected_prospect_id" not in st.session_state:
 if "chat_histories" not in st.session_state:
     st.session_state.chat_histories = {}
 if "query_log" not in st.session_state:
-    st.session_state.query_log = []
+    st.session_state.query_log = []   # list of dicts: {num, words, model, label, chip_class, reason, cost}
 
 def get_prospect(pid):
     return next((p for p in PROSPECTS if p["id"] == pid), None)
@@ -363,7 +298,6 @@ with st.sidebar:
     st.markdown("""
     <div style="padding: 0 0.5rem; font-size: 0.72rem; color: #5a5a8a; line-height: 1.7;">
       <strong style="color: #8080b0 !important;">Routing:</strong> CascadeFlow<br>
-      <strong style="color: #8080b0 !important;">Signals:</strong> Keyword + Length<br>
       <strong style="color: #8080b0 !important;">Provider:</strong> Groq<br>
       <strong style="color: #8080b0 !important;">Context:</strong> Deal-aware
     </div>
@@ -387,6 +321,7 @@ else:
         st.session_state.chat_histories[prospect_id] = []
     chat_history = st.session_state.chat_histories[prospect_id]
 
+    # ── Tabs ─────────────────────────────────────────────────────────────────
     tab_coach, tab_dash = st.tabs(["💬 Deal Coach", "📊 Cost Dashboard"])
 
     # ════════════════════════════════════════════════════════════════════════
@@ -448,17 +383,8 @@ else:
                 </div>
                 """, unsafe_allow_html=True)
             else:
-                # Show routing signal pill above AI bubbles that have metadata
-                signal_html = ""
-                if msg.get("route_trigger") == "keyword" and msg.get("route_kws"):
-                    kw_str = ", ".join(msg["route_kws"])
-                    signal_html = f'<div class="route-signal keyword"><div class="route-dot"></div>Keyword escalation · {kw_str} · {msg.get("route_model","")}</div>'
-                elif msg.get("route_trigger") == "length":
-                    signal_html = f'<div class="route-signal length"><div class="route-dot"></div>Length routing · {msg.get("route_words","?")} words · {msg.get("route_model","")}</div>'
-
                 st.markdown(f"""
                 <div class="chat-message-wrap ai">
-                  {signal_html}
                   <div class="ai-label">⚡ DealMind</div>
                   <div class="chat-bubble-ai">{msg['content']}</div>
                 </div>
@@ -481,32 +407,18 @@ else:
             tier = route_query(text)
             chat_history.append({"role": "user", "content": text})
             system_prompt = build_system_prompt(prospect)
-            api_messages  = [{"role": "system", "content": system_prompt}] + [
-                {"role": m["role"], "content": m["content"]} for m in chat_history
-            ]
+            api_messages  = [{"role": "system", "content": system_prompt}] + chat_history
             with st.spinner("DealMind is thinking…"):
                 ai_response = call_groq(api_messages, tier["model"])
-
-            # Store routing metadata on the assistant message for display
-            chat_history.append({
-                "role":          "assistant",
-                "content":       ai_response,
-                "route_trigger": tier["trigger"],
-                "route_kws":     tier["matched_kws"],
-                "route_words":   tier["words"],
-                "route_model":   tier["label"],
-            })
+            chat_history.append({"role": "assistant", "content": ai_response})
             st.session_state.chat_histories[prospect_id] = chat_history
-
-            # Log routing decision
+            # Log the routing decision
             st.session_state.query_log.append({
                 "num":        len(st.session_state.query_log) + 1,
                 "words":      tier["words"],
                 "model":      tier["label"],
                 "chip_class": tier["chip_class"],
                 "reason":     tier["reason"],
-                "trigger":    tier["trigger"],
-                "matched_kws":tier["matched_kws"],
                 "cost":       tier["cost"],
             })
             st.rerun()
@@ -538,9 +450,6 @@ else:
         money_saved   = est_no_route - total_cost
         pct_saved     = (money_saved / est_no_route * 100) if est_no_route > 0 else 0.0
 
-        kw_escalations = sum(1 for r in log if r.get("trigger") == "keyword")
-        len_routed     = total_queries - kw_escalations
-
         # ── 4 metric boxes ───────────────────────────────────────────────
         m1, m2, m3, m4 = st.columns(4)
         with m1:
@@ -556,19 +465,8 @@ else:
                 delta=f"{pct_saved:.1f}% saved" if total_queries else "—",
             )
 
-        # ── Routing signal breakdown ──────────────────────────────────────
-        if total_queries:
-            st.markdown('<div class="dash-section-title">🔀 Signal Breakdown</div>', unsafe_allow_html=True)
-            sb1, sb2 = st.columns(2)
-            with sb1:
-                st.metric("Keyword Escalations 🔑", kw_escalations,
-                          delta=f"{kw_escalations/total_queries*100:.0f}% of queries" if total_queries else "—")
-            with sb2:
-                st.metric("Length-Routed ↔", len_routed,
-                          delta=f"{len_routed/total_queries*100:.0f}% of queries" if total_queries else "—")
-
         # ── Routing Decisions table ───────────────────────────────────────
-        st.markdown('<div class="dash-section-title">📋 Routing Decisions</div>', unsafe_allow_html=True)
+        st.markdown('<div class="dash-section-title">🔀 Routing Decisions</div>', unsafe_allow_html=True)
 
         if not log:
             st.markdown("""
@@ -579,15 +477,10 @@ else:
         else:
             rows_html = ""
             for r in log:
-                if r.get("trigger") == "keyword" and r.get("matched_kws"):
-                    trigger_cell = f'<span class="trigger-kw">🔑 {", ".join(r["matched_kws"])}</span>'
-                else:
-                    trigger_cell = f'<span class="trigger-len">↔ {r["words"]} words</span>'
-
                 rows_html += f"""
                 <tr>
                   <td>#{r['num']}</td>
-                  <td>{trigger_cell}</td>
+                  <td>{r['words']}</td>
                   <td><span class="model-chip {r['chip_class']}">{r['model']}</span></td>
                   <td>{r['reason']}</td>
                   <td class="cost-cell">${r['cost']:.4f}</td>
@@ -598,7 +491,7 @@ else:
               <thead>
                 <tr>
                   <th>Query #</th>
-                  <th>Signal</th>
+                  <th>Words</th>
                   <th>Model Used</th>
                   <th>Reason</th>
                   <th>Cost</th>
@@ -610,24 +503,19 @@ else:
 
             # ── Bar chart: queries per model ──────────────────────────────
             st.markdown('<div class="dash-section-title">📊 Queries by Model</div>', unsafe_allow_html=True)
+
             model_counts = {}
             for r in log:
                 model_counts[r["model"]] = model_counts.get(r["model"], 0) + 1
-            chart_df = pd.DataFrame({"Queries": model_counts})
-            st.bar_chart(chart_df, color="#6c63ff")
 
-            # ── Bar chart: cost by model ──────────────────────────────────
-            st.markdown('<div class="dash-section-title">💰 Cost by Model</div>', unsafe_allow_html=True)
-            model_costs = {}
-            for r in log:
-                model_costs[r["model"]] = round(model_costs.get(r["model"], 0.0) + r["cost"], 6)
-            cost_df = pd.DataFrame({"Cost ($)": model_costs})
-            st.bar_chart(cost_df, color="#a78bfa")
+            chart_df = pd.DataFrame(
+                {"Queries": model_counts},
+            )
+            st.bar_chart(chart_df, color="#6c63ff")
 
         # ── Footer note ───────────────────────────────────────────────────
         st.markdown("""
         <div class="dash-note">
-          Powered by <span>CascadeFlow</span> — keyword escalation + length-based routing across 3 model tiers.
+          Powered by <span>CascadeFlow model routing</span> — automatically selecting the right model for every query.
         </div>
         """, unsafe_allow_html=True)
-        
